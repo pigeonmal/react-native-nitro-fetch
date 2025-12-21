@@ -9,6 +9,7 @@ import {
   NitroFetch as NitroFetchSingleton,
 } from './NitroInstances';
 import { NativeStorage as NativeStorageSingleton } from './NitroInstances';
+import { NitroRequestInit } from './type';
 
 // No base64: pass strings/ArrayBuffers directly
 
@@ -106,7 +107,7 @@ function ensureClient() {
 
 function buildNitroRequest(
   input: RequestInfo | URL,
-  init?: RequestInit
+  init?: NitroRequestInit
 ): NitroRequest {
   'worklet';
   let url: string;
@@ -139,6 +140,7 @@ function buildNitroRequest(
     // Only include bodyBytes when provided to avoid signaling upload data unintentionally
     bodyBytes: undefined as any,
     followRedirects: true,
+    timeoutMs: init?.timeoutMs,
   };
 }
 
@@ -239,7 +241,7 @@ function normalizeBodyPure(
 // Pure JS version of buildNitroRequest that doesnt use anything that breaks worklets
 export function buildNitroRequestPure(
   input: RequestInfo | URL,
-  init?: RequestInit
+  init?: NitroRequestInit
 ): NitroRequest {
   'worklet';
   let url: string;
@@ -284,7 +286,7 @@ export function buildNitroRequestPure(
 
 async function nitroFetchRaw(
   input: RequestInfo | URL,
-  init?: RequestInit
+  init?: NitroRequestInit
 ): Promise<NitroResponse> {
   const hasNative =
     typeof (NitroFetchHybrid as any)?.createClient === 'function';
@@ -355,7 +357,7 @@ class NitroHeaders {
 
 export async function nitroFetch(
   input: RequestInfo | URL,
-  init?: RequestInit
+  init?: NitroRequestInit
 ): Promise<Response> {
   const res = await nitroFetchRaw(input, init);
 
@@ -384,7 +386,7 @@ export async function nitroFetch(
 // Start a native prefetch. Requires a `prefetchKey` header on the request.
 export async function prefetch(
   input: RequestInfo | URL,
-  init?: RequestInit
+  init?: NitroRequestInit
 ): Promise<void> {
   // If native implementation is not present yet, do nothing
   const hasNative =
@@ -418,7 +420,7 @@ export async function prefetch(
 // Persist a request to storage so native can prefetch it on app start.
 export async function prefetchOnAppStart(
   input: RequestInfo | URL,
-  init?: RequestInit & { prefetchKey?: string }
+  init?: NitroRequestInit & { prefetchKey?: string }
 ): Promise<void> {
   // Resolve request and prefetchKey
   const req = buildNitroRequest(input, init);
@@ -544,7 +546,7 @@ function getWorklets(): any | undefined {
 
 export async function nitroFetchOnWorklet<T>(
   input: RequestInfo | URL,
-  init: RequestInit | undefined,
+  init: NitroRequestInit | undefined,
   mapWorklet: NitroWorkletMapper<T>,
   options?: { preferBytes?: boolean; runtimeName?: string }
 ): Promise<T> {
