@@ -15,7 +15,7 @@ import {
   prefetch,
   prefetchOnAppStart,
   removeAllFromAutoprefetch,
-} from 'react-native-nitro-fetch';
+} from '@pigeonmal/react-native-nitro-fetch';
 
 type Row = {
   url: string;

@@ -47,6 +47,7 @@
         "@babel/plugin-proposal-nullish-coalescing-operator": "^7.18.6",
         "@babel/preset-env": "^7.25.3",
         "@babel/runtime": "^7.25.0",
+        "@pigeonmal/react-native-nitro-fetch": "*",
         "@react-native-community/cli": "20.0.0",
         "@react-native-community/cli-platform-android": "20.0.0",
         "@react-native-community/cli-platform-ios": "20.0.0",
@@ -56,12 +57,11 @@
         "@types/react": "^19.1.0",
         "react-native-builder-bob": "^0.40.13",
         "react-native-monorepo-config": "^0.1.9",
-        "react-native-nitro-fetch": "*",
       },
     },
     "package": {
-      "name": "react-native-nitro-fetch",
-      "version": "0.1.3",
+      "name": "@pigeonmal/react-native-nitro-fetch",
+      "version": "0.1.6",
       "devDependencies": {
         "@commitlint/config-conventional": "^19.6.0",
         "@eslint/compat": "^1.2.7",
@@ -512,6 +512,8 @@
     "@octokit/rest": ["@octokit/rest@20.1.1", "", { "dependencies": { "@octokit/core": "^5.0.2", "@octokit/plugin-paginate-rest": "11.3.1", "@octokit/plugin-request-log": "^4.0.0", "@octokit/plugin-rest-endpoint-methods": "13.2.2" } }, "sha512-MB4AYDsM5jhIHro/dq4ix1iWTLGToIGk6cWF5L6vanFaMble5jTX/UBQyiv05HsWnwUtY8JrfHy2LWfKwihqMw=="],
 
     "@octokit/types": ["@octokit/types@13.10.0", "", { "dependencies": { "@octokit/openapi-types": "^24.2.0" } }, "sha512-ifLaO34EbbPj0Xgro4G5lP5asESjwHracYJvVaPIyXMuiuXLlhic3S47cBdTb+jfODkTE5YtGCLt3Ay3+J97sA=="],
+
+    "@pigeonmal/react-native-nitro-fetch": ["@pigeonmal/react-native-nitro-fetch@workspace:package"],
 
     "@pkgr/core": ["@pkgr/core@0.2.9", "", {}, "sha512-QNqXyfVS2wm9hweSYD2O7F0G06uurj9kZ96TRQE5Y9hU7+tgdZwIkbAKc5Ocy1HxEY2kuDQa6cQ1WRs/O5LFKA=="],
 
@@ -1730,8 +1732,6 @@
     "react-native-builder-bob": ["react-native-builder-bob@0.40.13", "", { "dependencies": { "@babel/core": "^7.25.2", "@babel/plugin-transform-flow-strip-types": "^7.26.5", "@babel/plugin-transform-strict-mode": "^7.24.7", "@babel/preset-env": "^7.25.2", "@babel/preset-react": "^7.24.7", "@babel/preset-typescript": "^7.24.7", "arktype": "^2.1.15", "babel-plugin-syntax-hermes-parser": "^0.28.0", "browserslist": "^4.20.4", "cross-spawn": "^7.0.3", "dedent": "^0.7.0", "del": "^6.1.1", "escape-string-regexp": "^4.0.0", "fs-extra": "^10.1.0", "glob": "^8.0.3", "is-git-dirty": "^2.0.1", "json5": "^2.2.1", "kleur": "^4.1.4", "prompts": "^2.4.2", "react-native-monorepo-config": "^0.1.8", "which": "^2.0.2", "yargs": "^17.5.1" }, "bin": { "bob": "bin/bob" } }, "sha512-CtucAJ5PMLH3GPNlg3TB5rb3UPot6VjkD9T8Uhz/AAWit/DmWll0zG33ZZeka69E2569saAjShDz3IKAoYGFtA=="],
 
     "react-native-monorepo-config": ["react-native-monorepo-config@0.1.10", "", { "dependencies": { "escape-string-regexp": "^5.0.0", "fast-glob": "^3.3.3" } }, "sha512-v0rlaLZiCUg95Mpw6xNRQce5k9yio0qscKjNQaPtFYMNL75YugS2UPUItIPLIRbZubK+s2/LRzBjX+mdyUgh4g=="],
-
-    "react-native-nitro-fetch": ["react-native-nitro-fetch@workspace:package"],
 
     "react-native-nitro-fetch-example": ["react-native-nitro-fetch-example@workspace:example"],
 

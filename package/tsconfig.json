@@ -2,7 +2,7 @@
   "compilerOptions": {
     "rootDir": ".",
     "paths": {
-      "react-native-nitro-fetch": [
+      "@pigeonmal/react-native-nitro-fetch": [
         "./src/index"
       ]
     },

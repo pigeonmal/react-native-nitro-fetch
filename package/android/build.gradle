@@ -109,9 +109,6 @@ repositories {
 }
 
 def kotlin_version = getExtOrDefault("kotlinVersion")
-// ---------- Cronet (Java API only) ----------
-def cronetVersion = (getExtOrDefault("cronetVersion") ?: "119.6045.31")
-
 
 dependencies {
   implementation "com.facebook.react:react-android"
@@ -119,7 +116,7 @@ dependencies {
   implementation project(":react-native-nitro-modules")
   // Provide org.chromium.net Java API for CronetEngine in Kotlin
   // Cronet
-  api "org.chromium.net:cronet-embedded:${cronetVersion}"
+  api "com.google.android.gms:play-services-cronet:18.0.1"
   implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
 
 }

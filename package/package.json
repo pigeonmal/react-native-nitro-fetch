@@ -1,5 +1,5 @@
 {
-  "name": "react-native-nitro-fetch",
+  "name": "@pigeonmal/react-native-nitro-fetch",
   "version": "0.1.6",
   "description": "Awesome Fetch :)",
   "main": "./lib/module/index.js",
@@ -61,7 +61,8 @@
   },
   "homepage": "https://github.com/margelo/react-native-nitro-fetch#readme",
   "publishConfig": {
-    "registry": "https://registry.npmjs.org/"
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   },
   "devDependencies": {
     "@commitlint/config-conventional": "^19.6.0",
