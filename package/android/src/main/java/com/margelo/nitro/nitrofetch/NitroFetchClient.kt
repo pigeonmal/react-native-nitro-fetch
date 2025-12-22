@@ -8,12 +8,11 @@ import org.chromium.net.CronetEngine
 import org.chromium.net.CronetException
 import org.chromium.net.UrlRequest
 import org.chromium.net.UrlResponseInfo
-import java.io.InterruptedIOException
 import java.nio.ByteBuffer
 import java.util.concurrent.Executor
+import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import okio.AsyncTimeout
 
 fun ByteBuffer.toByteArray(): ByteArray {
   // duplicate to avoid modifying the original buffer's position
@@ -30,7 +29,9 @@ class NitroFetchClient(private val engine: CronetEngine, private val executor: E
   private fun findPrefetchKey(req: NitroRequest): String? {
     val h = req.headers ?: return null
     for (pair in h) {
-      if (pair.key.equals("prefetchKey", ignoreCase = true)) return pair.value
+      val k = pair.key
+      val v = pair.value
+      if (k.equals("prefetchKey", ignoreCase = true)) return v
     }
     return null
   }
@@ -59,112 +60,89 @@ class NitroFetchClient(private val engine: CronetEngine, private val executor: E
       onFail: (Throwable) -> Unit
     ) {
       val url = req.url
-      val completed = AtomicBoolean(false)
+      val timeoutMs = req.timeoutMs?.toLong()
+      val isTimedOut = AtomicBoolean(false)
       var urlRequest: UrlRequest? = null
-
-      // Create timeout handler
-      val timeout = object : AsyncTimeout() {
-        override fun timedOut() {
-          if (completed.compareAndSet(false, true)) {
-            urlRequest?.cancel()
-          }
-        }
-      }
-
-      // Configure timeout from request
-      req.timeoutMs?.let { timeoutMs ->
-        if (timeoutMs > 0) {
-          timeout.timeout(timeoutMs.toLong(), TimeUnit.MILLISECONDS)
-        }
-      }
+      var timeoutTask: java.util.concurrent.ScheduledFuture<*>? = null
 
       val callback = object : UrlRequest.Callback() {
         private val buffer = ByteBuffer.allocateDirect(16 * 1024)
         private val out = java.io.ByteArrayOutputStream()
 
         override fun onRedirectReceived(request: UrlRequest, info: UrlResponseInfo, newLocationUrl: String) {
-          request.followRedirect()
+          if (!isTimedOut.get()) {
+            request.followRedirect()
+          }
         }
 
         override fun onResponseStarted(request: UrlRequest, info: UrlResponseInfo) {
-          buffer.clear()
-          request.read(buffer)
+          if (!isTimedOut.get()) {
+            buffer.clear()
+            request.read(buffer)
+          }
         }
 
         override fun onReadCompleted(request: UrlRequest, info: UrlResponseInfo, byteBuffer: ByteBuffer) {
-          byteBuffer.flip()
-          val bytes = ByteArray(byteBuffer.remaining())
-          byteBuffer.get(bytes)
-          out.write(bytes)
-          byteBuffer.clear()
-          request.read(byteBuffer)
+          if (!isTimedOut.get()) {
+            byteBuffer.flip()
+            val bytes = ByteArray(byteBuffer.remaining())
+            byteBuffer.get(bytes)
+            out.write(bytes)
+            byteBuffer.clear()
+            request.read(byteBuffer)
+          }
         }
 
         override fun onSucceeded(request: UrlRequest, info: UrlResponseInfo) {
-          if (!completed.compareAndSet(false, true)) return
-          timeout.exit()
-          
-          try {
-            val headersArr: Array<NitroHeader> =
-              info.allHeadersAsList.map { NitroHeader(it.key, it.value) }.toTypedArray()
-            val status = info.httpStatusCode
-            val bytes = out.toByteArray()
-            val contentType = info.allHeaders["Content-Type"] ?: info.allHeaders["content-type"]
-            val charset = run {
-              val ct = contentType ?: ""
-              val m = Regex("charset=([A-Za-z0-9_\\-:.]+)", RegexOption.IGNORE_CASE).find(ct.toString())
-              try {
-                if (m != null) java.nio.charset.Charset.forName(m.groupValues[1]) else Charsets.UTF_8
-              } catch (_: Throwable) {
-                Charsets.UTF_8
-              }
-            }
-            val bodyStr = try { 
-              String(bytes, charset) 
-            } catch (_: Throwable) { 
-              String(bytes, Charsets.UTF_8) 
-            }
+          if (!isTimedOut.get()) {
+            // Cancel timeout task if still pending
+            timeoutTask?.cancel(false)
             
-            val res = NitroResponse(
-              url = info.url,
-              status = status.toDouble(),
-              statusText = info.httpStatusText ?: "",
-              ok = status in 200..299,
-              redirected = info.url != url,
-              headers = headersArr,
-              bodyString = bodyStr,
-              bodyBytes = null
-            )
-            onSuccess(res)
-          } catch (t: Throwable) {
-            onFail(t)
+            try {
+              val headersArr: Array<NitroHeader> =
+                info.allHeadersAsList.map { NitroHeader(it.key, it.value) }.toTypedArray()
+              val status = info.httpStatusCode
+              val bytes = out.toByteArray()
+              val contentType = info.allHeaders["Content-Type"] ?: info.allHeaders["content-type"]
+              val charset = run {
+                val ct = contentType ?: ""
+                val m = Regex("charset=([A-Za-z0-9_\\-:.]+)", RegexOption.IGNORE_CASE).find(ct.toString())
+                try {
+                  if (m != null) java.nio.charset.Charset.forName(m.groupValues[1]) else Charsets.UTF_8
+                } catch (_: Throwable) {
+                  Charsets.UTF_8
+                }
+              }
+              val bodyStr = try { String(bytes, charset) } catch (_: Throwable) { String(bytes, Charsets.UTF_8) }
+              val res = NitroResponse(
+                url = info.url,
+                status = status.toDouble(),
+                statusText = info.httpStatusText ?: "",
+                ok = status in 200..299,
+                redirected = info.url != url,
+                headers = headersArr,
+                bodyString = bodyStr,
+                bodyBytes = null
+              )
+              onSuccess(res)
+            } catch (t: Throwable) {
+              onFail(t)
+            }
           }
         }
 
         override fun onFailed(request: UrlRequest, info: UrlResponseInfo?, error: CronetException) {
-          if (!completed.compareAndSet(false, true)) return
-          val timedOut = timeout.exit()
-          
-          val exception = if (timedOut) {
-            InterruptedIOException("Request timeout after ${req.timeoutMs}ms").apply {
-              initCause(error)
-            }
-          } else {
-            RuntimeException("Cronet failed: ${error.message}", error)
+          if (!isTimedOut.get()) {
+            timeoutTask?.cancel(false)
+            onFail(RuntimeException("Cronet failed: ${error.message}", error))
           }
-          onFail(exception)
         }
 
         override fun onCanceled(request: UrlRequest, info: UrlResponseInfo?) {
-          if (!completed.compareAndSet(false, true)) return
-          val timedOut = timeout.exit()
-          
-          val exception = if (timedOut) {
-            InterruptedIOException("Request timeout after ${req.timeoutMs}ms")
-          } else {
-            RuntimeException("Cronet canceled")
+          if (!isTimedOut.get()) {
+            timeoutTask?.cancel(false)
+            onFail(RuntimeException("Cronet canceled"))
           }
-          onFail(exception)
         }
       }
 
@@ -172,7 +150,6 @@ class NitroFetchClient(private val engine: CronetEngine, private val executor: E
       val method = req.method?.name ?: "GET"
       builder.setHttpMethod(method)
       req.headers?.forEach { (k, v) -> builder.addHeader(k, v) }
-      
       val bodyBytes = req.bodyBytes
       val bodyStr = req.bodyString
       if ((bodyBytes != null) || !bodyStr.isNullOrEmpty()) {
@@ -198,10 +175,21 @@ class NitroFetchClient(private val engine: CronetEngine, private val executor: E
         }
         builder.setUploadDataProvider(provider, executor)
       }
-      
-      urlRequest = builder.build()
-      timeout.enter()
-      urlRequest.start()
+      val request = builder.build()
+      urlRequest = request
+
+      // Set up timeout if specified
+      if (timeoutMs != null && timeoutMs > 0) {
+        val scheduledExecutor = NitroFetch.scheduledExecutor // You'll need to add this
+        timeoutTask = scheduledExecutor.schedule({
+          if (isTimedOut.compareAndSet(false, true)) {
+            request.cancel()
+            onFail(TimeoutException("Request timed out after ${timeoutMs}ms"))
+          }
+        }, timeoutMs, TimeUnit.MILLISECONDS)
+      }
+
+      request.start()
     }
   }
 
@@ -279,7 +267,6 @@ class NitroFetchClient(private val engine: CronetEngine, private val executor: E
         return promise
       }
     }
-    
     fetch(
       req,
       onSuccess = { promise.resolve(it) },
@@ -326,6 +313,4 @@ class NitroFetchClient(private val engine: CronetEngine, private val executor: E
     )
     return promise
   }
-
-
 }

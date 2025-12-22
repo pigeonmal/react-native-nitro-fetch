@@ -117,7 +117,6 @@ dependencies {
   // Provide org.chromium.net Java API for CronetEngine in Kotlin
   // Cronet
   api "com.google.android.gms:play-services-cronet:18.0.1"
-  implementation("com.squareup.okio:okio:2.9.0")
   implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
 
 }

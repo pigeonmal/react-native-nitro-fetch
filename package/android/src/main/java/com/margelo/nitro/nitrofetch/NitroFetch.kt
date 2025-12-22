@@ -29,6 +29,7 @@ class NitroFetch : HybridNitroFetchSpec() {
         }
       }
     }
+    val scheduledExecutor = Executors.newSingleThreadScheduledExecutor()
 
     fun getEngine(): CronetEngine {
       engineRef?.let { return it }
