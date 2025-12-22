@@ -9,6 +9,7 @@ import org.chromium.net.CronetException
 import org.chromium.net.UrlRequest
 import org.chromium.net.UrlResponseInfo
 import java.nio.ByteBuffer
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.Executor
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
