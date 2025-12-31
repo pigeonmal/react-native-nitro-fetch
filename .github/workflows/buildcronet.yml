@@ -1,0 +1,91 @@
+name: Build Cronet Android (Chromium 143.0.7499.146)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+
+    steps:
+    - name: Install system dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          git curl unzip python3 \
+          openjdk-17-jdk \
+          ninja-build \
+          libc6-dev-i386 lib32stdc++6 lib32gcc-s1
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Install Android NDK
+      run: sdkmanager "ndk;25.2.9519653"
+
+    - name: Cache Chromium tools
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cipd
+          ~/.cache/depot_tools
+          ~/.config/gclient
+        key: chromium-tools-${{ runner.os }}
+
+    - name: Install depot_tools
+      run: |
+        git clone --depth=1 https://chromium.googlesource.com/chromium/tools/depot_tools.git
+        echo "$PWD/depot_tools" >> $GITHUB_PATH
+
+    - name: Fetch Cronet (no history)
+      run: |
+        mkdir cronet && cd cronet
+        fetch --nohooks --no-history cronet
+
+    - name: Checkout Chromium tag 143.0.7499.146
+      working-directory: cronet/src
+      run: |
+        git fetch --tags --depth=1
+        git checkout 143.0.7499.146
+
+    - name: Sync dependencies for pinned version
+      working-directory: cronet/src
+      run: |
+        gclient sync --no-history --with_branch_heads --with_tags
+
+    - name: Run hooks
+      working-directory: cronet/src
+      run: gclient runhooks
+
+    - name: Build Cronet AAR (all ABIs)
+      working-directory: cronet/src
+      run: |
+        for ABI in arm arm64 x86 x64; do
+          OUT=out/Release-$ABI
+          gn gen $OUT --args="
+            target_os=\"android\"
+            target_cpu=\"$ABI\"
+            is_debug=false
+            is_component_build=false
+            android_ndk_root=\"$ANDROID_NDK_ROOT\"
+            enable_nacl=false
+            enable_remoting=false
+            enable_printing=false
+            enable_vr=false
+            use_cups=false
+            use_kerberos=false
+          "
+          ninja -C $OUT cronet_package
+        done
+
+    - name: Collect AARs
+      run: |
+        mkdir dist
+        find cronet/src/out -name "cronet*.aar" -exec cp {} dist/ \;
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: cronet-android-143.0.7499.146
+        path: dist/*.aar
