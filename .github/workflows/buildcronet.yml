@@ -24,6 +24,8 @@ jobs:
         JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
 
     - name: Install Android NDK
+      env:
+        JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
       run: sdkmanager "ndk;25.2.9519653"
 
     - name: Cache Chromium tools
