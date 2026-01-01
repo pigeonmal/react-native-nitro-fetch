@@ -114,9 +114,7 @@ dependencies {
   implementation "com.facebook.react:react-android"
   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
   implementation project(":react-native-nitro-modules")
-  // Provide org.chromium.net Java API for CronetEngine in Kotlin
-  // Cronet
-  api "com.google.android.gms:play-services-cronet:18.0.1"
+  api project(':cronet-release')
   implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
 
 }
