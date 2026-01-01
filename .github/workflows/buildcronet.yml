@@ -210,4 +210,4 @@ jobs:
       with:
         name: cronet-android-${{ env.CHROMIUM_VERSION }}
         path: dist/
-        retention-days: 90
+        retention-days: 1
