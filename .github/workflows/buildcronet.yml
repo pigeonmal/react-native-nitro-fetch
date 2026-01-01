@@ -3,20 +3,25 @@ name: Build Cronet Android (Chromium 143.0.7499.146)
 on:
   workflow_dispatch:
 
+env:
+  CHROMIUM_VERSION: 143.0.7499.146
+  BUILD_VARIANT: release
+
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 180
+    timeout-minutes: 240
 
     steps:
     - name: Install system dependencies
       run: |
         sudo apt update
         sudo apt install -y \
-          git curl unzip python3 \
+          git curl unzip python3 python3-protobuf \
           openjdk-17-jdk \
           ninja-build \
-          libc6-dev-i386 lib32stdc++6 lib32gcc-s1
+          libc6-dev-i386 lib32stdc++6 lib32gcc-s1 \
+          libgconf-2-4
 
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
@@ -28,68 +33,181 @@ jobs:
         JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
       run: sdkmanager "ndk;25.2.9519653"
 
-    - name: Cache Chromium tools
+    - name: Cache Chromium tools and dependencies
       uses: actions/cache@v4
       with:
         path: |
           ~/.cipd
           ~/.cache/depot_tools
           ~/.config/gclient
-        key: chromium-tools-${{ runner.os }}
+        key: chromium-tools-${{ runner.os }}-143
+        restore-keys: |
+          chromium-tools-${{ runner.os }}-
 
     - name: Install depot_tools
       run: |
         git clone --depth=1 https://chromium.googlesource.com/chromium/tools/depot_tools.git
         echo "$PWD/depot_tools" >> $GITHUB_PATH
 
-    - name: Fetch Cronet (no history)
+    - name: Fetch Chromium Android source
       run: |
-        mkdir cronet && cd cronet
-        fetch --nohooks --no-history cronet
+        mkdir -p chromium
+        cd chromium
+        fetch --nohooks --no-history android
 
-    - name: Checkout Chromium tag 143.0.7499.146
-      working-directory: cronet/src
+    - name: Checkout Chromium tag
+      working-directory: chromium/src
+      env:
+        JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
       run: |
-        git fetch --tags --depth=1
-        git checkout 143.0.7499.146
+        git fetch --tags --depth=1 origin
+        git checkout ${{ env.CHROMIUM_VERSION }}
 
-    - name: Sync dependencies for pinned version
-      working-directory: cronet/src
-      run: |
-        gclient sync --no-history --with_branch_heads --with_tags
+    - name: Sync dependencies
+      working-directory: chromium/src
+      env:
+        JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+      run: gclient sync --no-history --with_branch_heads --with_tags
 
     - name: Run hooks
-      working-directory: cronet/src
+      working-directory: chromium/src
+      env:
+        JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
       run: gclient runhooks
 
-    - name: Build Cronet AAR (all ABIs)
-      working-directory: cronet/src
+    - name: Build Cronet for all architectures
+      working-directory: chromium/src
+      env:
+        JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+        CHROMIUM_SRC_ROOT: ${{ github.workspace }}/chromium/src
       run: |
-        for ABI in arm arm64 x86 x64; do
-          OUT=out/Release-$ABI
-          gn gen $OUT --args="
-            target_os=\"android\"
-            target_cpu=\"$ABI\"
-            is_debug=false
-            is_component_build=false
-            android_ndk_root=\"$ANDROID_NDK_ROOT\"
-            enable_nacl=false
-            enable_remoting=false
-            enable_printing=false
-            enable_vr=false
-            use_cups=false
-            use_kerberos=false
-          "
-          ninja -C $OUT cronet_package
+        for arch in arm arm64 x86 x64; do
+          echo "=========================================="
+          echo "Building Cronet for architecture: $arch"
+          echo "=========================================="
+          
+          out_dir="out/Cronet-$arch-${{ env.BUILD_VARIANT }}"
+          
+          # Clean previous build
+          if [[ -d "$out_dir" ]]; then
+            rm -rf "$out_dir"
+          fi
+          
+          # Generate GN args
+          gn_args="--out_dir=$out_dir"
+          gn_args="$gn_args --release"
+          
+          # Set architecture-specific arguments
+          if [[ "$arch" == "arm" ]]; then
+            gn_args="$gn_args --arm"
+          elif [[ "$arch" == "x64" ]]; then
+            gn_args="$gn_args --x64"
+          elif [[ "$arch" == "x86" ]]; then
+            gn_args="$gn_args --x86"
+          fi
+          
+          echo "GN args: $gn_args"
+          
+          # Generate build files
+          ./components/cronet/tools/cr_cronet.py gn $gn_args
+          
+          # Fix remoteexec issue (defaults to true, causes errors)
+          sed -i 's/use_remoteexec = true/use_remoteexec = false/g' "$out_dir/args.gn"
+          
+          # Fix is_official_build (should be false for this build)
+          sed -i 's/is_official_build = true/is_official_build = false/g' "$out_dir/args.gn"
+          
+          # Build Cronet package
+          echo "Building cronet_package for $arch..."
+          autoninja -C "$out_dir" cronet_package
+          
+          if [[ $? -ne 0 ]]; then
+            echo "Build failed for architecture: $arch"
+            exit 1
+          fi
+          
+          echo "Build successful for architecture: $arch"
         done
 
-    - name: Collect AARs
+    - name: Merge all architecture outputs to ARM directory
+      working-directory: chromium/src
       run: |
-        mkdir dist
-        find cronet/src/out -name "cronet*.aar" -exec cp {} dist/ \;
+        base_dir="out/Cronet-arm-${{ env.BUILD_VARIANT }}"
+        
+        # Copy libraries from other architectures
+        for arch in arm64 x86 x64; do
+          src_dir="out/Cronet-$arch-${{ env.BUILD_VARIANT }}/cronet/libs"
+          if [[ -d "$src_dir" ]]; then
+            echo "Copying libraries from $arch..."
+            cp -r "$src_dir"/* "$base_dir/cronet/libs/" || true
+          fi
+        done
 
-    - name: Upload artifacts
+    - name: Clean up unwanted libraries
+      working-directory: chromium/src
+      run: |
+        base_dir="out/Cronet-arm-${{ env.BUILD_VARIANT }}/cronet/libs"
+        
+        # Remove old version libraries, keep only current version
+        echo "Cleaning unwanted library versions..."
+        find "$base_dir" -name "libcronet.*.so" -not -name "libcronet.${{ env.CHROMIUM_VERSION }}.so" -delete
+        
+        # List final libraries
+        echo "Final libraries:"
+        ls -lah "$base_dir"/*/*.so 2>/dev/null || echo "No .so files found"
+
+    - name: Verify build structure
+      working-directory: chromium/src
+      run: |
+        base_dir="out/Cronet-arm-${{ env.BUILD_VARIANT }}/cronet"
+        echo "=== Cronet build structure ==="
+        find "$base_dir" -type f | head -20
+
+    - name: Package AAR files
+      working-directory: chromium/src
+      run: |
+        base_dir="out/Cronet-arm-${{ env.BUILD_VARIANT }}/cronet"
+        
+        if [[ ! -d "$base_dir" ]]; then
+          echo "Error: Cronet output directory not found at $base_dir"
+          ls -la out/
+          exit 1
+        fi
+        
+        # Copy cronet directory to dist
+        mkdir -p dist
+        cp -r "$base_dir" "dist/cronet-${{ env.CHROMIUM_VERSION }}"
+        
+        # Create tar archive for easier distribution
+        cd dist
+        tar czf "cronet-${{ env.CHROMIUM_VERSION }}-android.tar.gz" "cronet-${{ env.CHROMIUM_VERSION }}"
+        
+        # List all archives
+        echo "=== Created archives ==="
+        ls -lah *.tar.gz
+
+    - name: Create artifact summary
+      run: |
+        mkdir -p dist
+        cat > dist/BUILD_INFO.txt <<EOF
+        Cronet Build Summary
+        ====================
+        Version: ${{ env.CHROMIUM_VERSION }}
+        Build Date: $(date)
+        Build Variant: ${{ env.BUILD_VARIANT }}
+        
+        Contents:
+        - cronet/ directory with all architecture libraries
+        - Libraries for: arm (armeabi-v7a), arm64 (arm64-v8a), x86, x86_64
+        
+        Usage:
+        Extract the tar.gz file to access the cronet directory structure.
+        EOF
+        cat dist/BUILD_INFO.txt
+
+    - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: cronet-android-143.0.7499.146
-        path: dist/*.aar
+        name: cronet-android-${{ env.CHROMIUM_VERSION }}
+        path: dist/
+        retention-days: 90
