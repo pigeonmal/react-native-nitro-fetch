@@ -1,6 +1,6 @@
 {
   "name": "@pigeonmal/react-native-nitro-fetch",
-  "version": "0.1.9",
+  "version": "0.2.0",
   "description": "Awesome Fetch :)",
   "main": "./lib/module/index.js",
   "module": "./lib/module/index.js",

@@ -61,7 +61,7 @@
     },
     "package": {
       "name": "@pigeonmal/react-native-nitro-fetch",
-      "version": "0.1.6",
+      "version": "0.2.0",
       "devDependencies": {
         "@commitlint/config-conventional": "^19.6.0",
         "@eslint/compat": "^1.2.7",
