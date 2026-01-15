@@ -115,6 +115,7 @@ dependencies {
   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
   implementation project(":react-native-nitro-modules")
   api project(':cronet-release')
+  implementation "com.google.protobuf:protobuf-javalite:3.25.8"
   implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
 
 }
