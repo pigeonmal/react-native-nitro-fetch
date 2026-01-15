@@ -40,9 +40,9 @@ class NitroFetch : HybridNitroFetchSpec() {
         ?: throw IllegalStateException("NitroFetch: Application not available")
 
         val nativeProvider =
-        CronetProvider.getAllProviders(context).find { provider ->
+        CronetProvider.getAllProviders(app).find { provider ->
             provider.isEnabled && provider.name != CronetProvider.PROVIDER_NAME_FALLBACK
-        }
+        } ?: throw IllegalStateException("NitroFetch: Provider not available")
 
         val cacheDir = File(app.cacheDir, "nitrofetch_cronet_cache").apply { mkdirs() }
         val builder = (nativeProvider?.createBuilder() ?: CronetEngine.Builder(app))
