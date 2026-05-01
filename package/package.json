@@ -61,7 +61,7 @@
   },
   "homepage": "https://github.com/margelo/react-native-nitro-fetch#readme",
   "publishConfig": {
-    "registry": "https://registry.npmjs.org/",
+    "registry": "https://npm.pkg.github.com",
     "access": "public"
   },
   "devDependencies": {
@@ -150,7 +150,7 @@
         "typescript",
         {
           "project": "tsconfig.build.json",
-          "tsc": "../node_modules/.bin/tsc.exe"
+          "tsc": "../node_modules/.bin/tsc.cmd"
         }
       ]
     ]

@@ -22,6 +22,7 @@
     "@babel/plugin-proposal-nullish-coalescing-operator": "^7.18.6",
     "@babel/preset-env": "^7.25.3",
     "@babel/runtime": "^7.25.0",
+    "@pigeonmal/react-native-nitro-fetch": "*",
     "@react-native-community/cli": "20.0.0",
     "@react-native-community/cli-platform-android": "20.0.0",
     "@react-native-community/cli-platform-ios": "20.0.0",
@@ -30,8 +31,7 @@
     "@react-native/typescript-config": "0.81.0",
     "@types/react": "^19.1.0",
     "react-native-builder-bob": "^0.40.13",
-    "react-native-monorepo-config": "^0.1.9",
-    "@pigeonmal/react-native-nitro-fetch": "*"
+    "react-native-monorepo-config": "^0.1.9"
   },
   "engines": {
     "node": ">=18"
