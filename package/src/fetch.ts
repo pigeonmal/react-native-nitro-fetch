@@ -114,6 +114,7 @@ function buildNitroRequest(
   let method: string | undefined;
   let headersInit: HeadersInit | undefined;
   let body: BodyInit | null | undefined;
+  let followRedirects = true;
 
   if (typeof input === 'string' || input instanceof URL) {
     url = String(input);
@@ -127,6 +128,7 @@ function buildNitroRequest(
     headersInit = input.headers as any;
     // Clone body if needed – Request objects in RN typically allow direct access
     body = init?.body ?? null;
+    followRedirects = input.redirect !== 'manual';
   }
 
   const headers = headersToPairs(headersInit);
@@ -139,7 +141,7 @@ function buildNitroRequest(
     bodyString: normalized?.bodyString,
     // Only include bodyBytes when provided to avoid signaling upload data unintentionally
     bodyBytes: undefined as any,
-    followRedirects: true,
+    followRedirects: followRedirects,
     timeoutMs: init?.timeoutMs,
   };
 }
@@ -248,6 +250,7 @@ export function buildNitroRequestPure(
   let method: string | undefined;
   let headersInit: HeadersInit | undefined;
   let body: BodyInit | null | undefined;
+  let followRedirects = true;
 
   // Check if input is URL-like without instanceof
   const isUrlObject =
@@ -268,6 +271,7 @@ export function buildNitroRequestPure(
     headersInit = req.headers;
     // Clone body if needed – Request objects in RN typically allow direct access
     body = init?.body ?? null;
+    followRedirects = req.redirect !== 'manual';
   }
 
   const headers = headersToPairsPure(headersInit);
@@ -280,7 +284,7 @@ export function buildNitroRequestPure(
     bodyString: normalized?.bodyString,
     // Only include bodyBytes when provided to avoid signaling upload data unintentionally
     bodyBytes: undefined as any,
-    followRedirects: true,
+    followRedirects: followRedirects,
   };
 }
 

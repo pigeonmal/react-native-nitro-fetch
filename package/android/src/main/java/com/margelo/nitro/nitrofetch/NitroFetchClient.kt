@@ -64,15 +64,41 @@ class NitroFetchClient(private val engine: CronetEngine, private val executor: E
       val timeoutMs = req.timeoutMs?.toLong()
       val isTimedOut = AtomicBoolean(false)
       var urlRequest: UrlRequest? = null
+      val shouldFollowRedirects = req.followRedirects ?: true
+
       var timeoutTask: java.util.concurrent.ScheduledFuture<*>? = null
 
       val callback = object : UrlRequest.Callback() {
         private val buffer = ByteBuffer.allocateDirect(16 * 1024)
         private val out = java.io.ByteArrayOutputStream()
+        private var redirectStopped = false
 
         override fun onRedirectReceived(request: UrlRequest, info: UrlResponseInfo, newLocationUrl: String) {
           if (!isTimedOut.get()) {
-            request.followRedirect()
+            if (shouldFollowRedirects) {
+              request.followRedirect()
+            } else {
+              redirectStopped = true
+              timeoutTask?.cancel(false)
+              request.cancel()
+              try {
+                val headersArr = info.allHeadersAsList.map { NitroHeader(it.key, it.value) }.toTypedArray()
+                val status = info.httpStatusCode
+                val res = NitroResponse(
+                  url = info.url,
+                  status = status.toDouble(),
+                  statusText = info.httpStatusText ?: "",
+                  ok = false,
+                  redirected = false,
+                  headers = headersArr,
+                  bodyString = "",
+                  bodyBytes = null
+                )
+                onSuccess(res)
+              } catch (t: Throwable) {
+                onFail(t)
+              }
+            }
           }
         }
 
@@ -98,7 +124,7 @@ class NitroFetchClient(private val engine: CronetEngine, private val executor: E
           if (!isTimedOut.get()) {
             // Cancel timeout task if still pending
             timeoutTask?.cancel(false)
-            
+
             try {
               val headersArr: Array<NitroHeader> =
                 info.allHeadersAsList.map { NitroHeader(it.key, it.value) }.toTypedArray()
@@ -142,7 +168,9 @@ class NitroFetchClient(private val engine: CronetEngine, private val executor: E
         override fun onCanceled(request: UrlRequest, info: UrlResponseInfo?) {
           if (!isTimedOut.get()) {
             timeoutTask?.cancel(false)
-            onFail(RuntimeException("Cronet canceled"))
+            if (!redirectStopped) {
+              onFail(RuntimeException("Cronet canceled"))
+            }
           }
         }
       }
@@ -227,14 +255,14 @@ class NitroFetchClient(private val engine: CronetEngine, private val executor: E
     val latch = java.util.concurrent.CountDownLatch(1)
     var result: NitroResponse? = null
     var error: Throwable? = null
-    
+
     fetch(
       req,
-      onSuccess = { 
+      onSuccess = {
         result = it
         latch.countDown()
       },
-      onFail = { 
+      onFail = {
         error = it
         latch.countDown()
       }
