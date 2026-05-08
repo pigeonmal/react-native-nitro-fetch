@@ -121,6 +121,7 @@ function buildNitroRequest(
     method = init?.method;
     headersInit = init?.headers;
     body = init?.body ?? null;
+    followRedirects = init?.redirect !== 'manual';
   } else {
     // Request object
     url = input.url;
@@ -263,6 +264,7 @@ export function buildNitroRequestPure(
     method = init?.method;
     headersInit = init?.headers;
     body = init?.body ?? null;
+    followRedirects = init?.redirect !== 'manual';
   } else {
     // Request object
     const req = input as Request;
@@ -285,6 +287,7 @@ export function buildNitroRequestPure(
     // Only include bodyBytes when provided to avoid signaling upload data unintentionally
     bodyBytes: undefined as any,
     followRedirects: followRedirects,
+    timeoutMs: init?.timeoutMs,
   };
 }
 
