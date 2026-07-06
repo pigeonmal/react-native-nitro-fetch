@@ -328,13 +328,38 @@ async function nitroFetchRaw(
 // Simple Headers-like class that supports get() method
 class NitroHeaders {
   private _headers: Map<string, string>;
+  private _setCookies: string[] = [];
 
   constructor(headers: NitroHeader[]) {
     this._headers = new Map();
     for (const { key, value } of headers) {
-      // Headers are case-insensitive, normalize to lowercase
-      this._headers.set(key.toLowerCase(), value);
+      const lowerKey = key.toLowerCase();
+      // Preserve every Set-Cookie value instead of overwriting
+      if (lowerKey === 'set-cookie') {
+        this._setCookies.push(value);
+      }
+      // For all headers (including set-cookie), keep last value in the Map
+      // so get('set-cookie') still works for single-cookie responses.
+      this._headers.set(lowerKey, value);
     }
+  }
+
+  /** Returns all Set-Cookie values as an array (matches Web Headers.getSetCookie()) */
+  getSetCookie(): string[] {
+    return this._setCookies.slice();
+  }
+
+  /** Returns a string like 'ax=ay; xy=z' ready for the Cookie request header */
+  getCookies(): string {
+    return this._setCookies
+      .map((raw) => {
+        // Each Set-Cookie value looks like: "ax=ay; Path=/; HttpOnly; Expires=..."
+        // We only want the first segment (the name=value pair) before any ';'
+        const firstPart = raw.split(';')[0];
+        return firstPart ? firstPart.trim() : '';
+      })
+      .filter((s) => s.length > 0)
+      .join('; ');
   }
 
   get(name: string): string | null {
